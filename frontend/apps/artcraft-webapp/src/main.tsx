@@ -19,6 +19,18 @@ const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
 );
 
+// Self-hosted production: API on same origin (nginx proxies /v1 to artcraft-api).
+if (
+  !import.meta.env.DEV &&
+  import.meta.env.VITE_ARTCRAFT_SELF_HOSTED === "true"
+) {
+  try {
+    StorytellerApiHostStore.getInstance().configureSelfHostedProduction();
+  } catch (e) {
+    console.warn("Failed to configure self-hosted API host", e);
+  }
+}
+
 // In development, route API through the Vite dev server origin to avoid CORS
 if (import.meta.env.DEV) {
   try {

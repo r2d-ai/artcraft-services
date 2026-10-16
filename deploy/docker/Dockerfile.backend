@@ -1,0 +1,114 @@
+# ArtCraft backend — Rust API and worker binaries for Uncloud / self-host.
+# Build context: repository root (../.. from deploy/uncloud).
+# Baseline: build/service_cpu.Dockerfile with bootstrap tooling in the runtime image.
+
+FROM ubuntu:jammy AS final-container
+
+LABEL org.opencontainers.image.title='ArtCraft Backend (CPU)'
+LABEL org.opencontainers.image.source='https://github.com/storytold/artcraft-services'
+
+WORKDIR /
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y \
+        ca-certificates \
+        curl \
+        default-mysql-client \
+        ffmpeg \
+        rsync \
+        --no-install-recommends \
+    && apt-get clean autoclean && apt-get autoremove -y \
+    && rm -rf /var/lib/{apt,dpkg,cache,log}/
+
+FROM ubuntu:jammy AS rust-base
+
+ARG RUST_TOOLCHAIN="1.93.0"
+
+WORKDIR /tmp
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y \
+        build-essential \
+        cmake \
+        curl \
+        ffmpeg \
+        fontconfig \
+        git \
+        libclang-dev \
+        libfontconfig1-dev \
+        libssl-dev \
+        musl-tools \
+        perl \
+        pkg-config
+
+RUN export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- --default-toolchain $RUST_TOOLCHAIN -y
+
+RUN $HOME/.cargo/bin/rustup show \
+    && $HOME/.cargo/bin/rustc --version \
+    && $HOME/.cargo/bin/cargo --version
+
+FROM rust-base AS builder
+
+COPY Cargo.lock Cargo.toml ./
+COPY .sqlx/ .sqlx/
+COPY _database ./_database/
+COPY crates/ ./crates/
+COPY includes/ ./includes/
+COPY test_data/ ./test_data/
+
+RUN SQLX_OFFLINE=true \
+  LD_LIBRARY_PATH=/usr/lib:${LD_LIBRARY_PATH} \
+  $HOME/.cargo/bin/cargo build \
+  --release \
+  --bin storyteller-web \
+  --bin user-spend-analytics-job \
+  --bin seedance2-pro-job \
+  --bin worldlabs-job \
+  --bin video-thumbnail-job \
+  --bin grok-api-job \
+  --bin dummy-service \
+  --bin analytics-job \
+  --bin email-sender-job \
+  --bin es-update-job
+
+FROM final-container AS final
+
+ARG GIT_SHA=unknown
+RUN echo -n ${GIT_SHA} > /GIT_SHA
+
+COPY --from=builder /tmp/target/release/storyteller-web /
+COPY --from=builder /tmp/target/release/seedance2-pro-job /
+COPY --from=builder /tmp/target/release/worldlabs-job /
+COPY --from=builder /tmp/target/release/video-thumbnail-job /
+COPY --from=builder /tmp/target/release/dummy-service /
+COPY --from=builder /tmp/target/release/analytics-job /
+COPY --from=builder /tmp/target/release/email-sender-job /
+COPY --from=builder /tmp/target/release/es-update-job /
+COPY --from=builder /tmp/target/release/grok-api-job /
+COPY --from=builder /tmp/target/release/user-spend-analytics-job /
+
+COPY --from=builder /etc/ssl /etc/ssl
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libssl.* /lib/x86_64-linux-gnu/
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libcrypto.* /lib/x86_64-linux-gnu/
+
+COPY includes/ /includes
+COPY _database/sql/migrations /opt/artcraft/migrations
+COPY _database/elasticsearch/index_definitions /opt/artcraft/elasticsearch/index_definitions
+COPY deploy/docker/pre-deploy.sh /opt/artcraft/pre-deploy.sh
+
+RUN chmod +x /opt/artcraft/pre-deploy.sh \
+    && ldd /storyteller-web
+
+RUN touch .env .env-secrets
+
+COPY crates/service/web/storyteller_web/config/storyteller-web.common.env .
+COPY crates/service/web/storyteller_web/config/storyteller-web.production.env .
+
+ENV LD_LIBRARY_PATH=/usr/lib
+
+EXPOSE 12345
+
+CMD ["/storyteller-web"]
