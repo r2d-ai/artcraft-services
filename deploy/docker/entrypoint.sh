@@ -1,14 +1,11 @@
 #!/bin/sh
 set -eu
 
-if [ -f /usr/share/nginx/html/runtime-config.js ]; then
-  :
-else
-  cat >/usr/share/nginx/html/runtime-config.js <<'EOF'
+CONFIG_PATH="/usr/share/nginx/html/config.js"
+API_PUBLIC_ORIGIN="${ARTCRAFT_API_PUBLIC_ORIGIN:-}"
+
+cat > "$CONFIG_PATH" <<EOF
 window.__ARTCRAFT_RUNTIME_CONFIG__ = {
-  apiOrigin: window.location.origin,
+  apiOrigin: "${API_PUBLIC_ORIGIN}"
 };
 EOF
-fi
-
-exec "$@"

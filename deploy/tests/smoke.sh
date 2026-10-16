@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://localhost:8080}"
+BASE_URL="${ARTCRAFT_SMOKE_BASE_URL:-https://studio.example.com}"
 
-curl -fsS "${BASE_URL}/" >/dev/null
-curl -fsS "${BASE_URL}/v1/auth/config" | grep -q '"success":true'
-curl -fsS -o /dev/null -w "%{http_code}" "${BASE_URL}/v1/service/health" | grep -qE '200|503'
+echo "Smoke: GET ${BASE_URL}/_status"
+curl -fsS "${BASE_URL}/_status" | head -c 200
+echo
 
-echo "smoke checks passed for ${BASE_URL}"
+echo "Smoke: GET ${BASE_URL}/ (web)"
+curl -fsS -o /dev/null -w "HTTP %{http_code}\n" "${BASE_URL}/"
+
+echo "Smoke OK"

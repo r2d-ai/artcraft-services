@@ -14,3 +14,7 @@ production_database_secret_connect.sh
 secrets.toml
 secrets.yaml
 target/
+frontend/node_modules/
+frontend/**/dist/
+frontend/**/test-output/
+deploy/tests/

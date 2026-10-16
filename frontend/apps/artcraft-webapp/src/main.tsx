@@ -19,12 +19,15 @@ const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
 );
 
-// Self-hosted / dockerized deployments proxy /v1 on the same origin as the webapp.
-if (!import.meta.env.DEV) {
+// Self-hosted production: API on same origin (nginx proxies /v1 to artcraft-api).
+if (
+  !import.meta.env.DEV &&
+  import.meta.env.VITE_ARTCRAFT_SELF_HOSTED === "true"
+) {
   try {
-    StorytellerApiHostStore.getInstance().setApiSchemeAndHost(window.location.origin);
+    StorytellerApiHostStore.getInstance().configureSelfHostedProduction();
   } catch (e) {
-    console.warn("Failed to set production same-origin API host", e);
+    console.warn("Failed to configure self-hosted API host", e);
   }
 }
 

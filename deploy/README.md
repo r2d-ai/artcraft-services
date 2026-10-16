@@ -1,35 +1,93 @@
-# ArtCraft self-hosted / Uncloud deployment
+# ArtCraft Uncloud / Docker deployment
 
-This directory contains Docker images and Uncloud compose manifests for running ArtCraft Studio with:
+Deployment artifacts for self-hosting ArtCraft on [Uncloud](https://uncloud.run/) with
+Docker-only build hosts (no Node.js or Rust on the cluster).
 
-- Same-origin frontend + API (`artcraft-web` nginx proxies `/v1/*` to `artcraft-api`)
-- Optional Keycloak OIDC login (`OIDC_*` environment variables)
-- Optional internal OpenAI-compatible inference provider (`INTERNAL_PROVIDER_*`)
-- Self-hosted mode (`SELF_HOSTED=true`) with optional credit-billing bypass
+## Layout
 
-## Build
+| Path                         | Purpose                                                |
+|------------------------------|--------------------------------------------------------|
+| `docker/Dockerfile.web`      | Nx/Vite build + nginx (static + `/v1` reverse proxy)   |
+| `docker/Dockerfile.backend`  | Rust API and worker binaries + bootstrap scripts       |
+| `docker/pre-deploy.sh`       | Migrations and Elasticsearch indexes (pre-deploy hook) |
+| `uncloud/compose.app.yaml`   | Application services (`artcraft-*`)                    |
+| `uncloud/compose.infra.yaml` | Optional MySQL, Redis, ES, SeaweedFS                    |
+| `uncloud/.env.example`       | Runtime configuration template                         |
+| `tests/smoke.sh`             | Basic health checks after deploy                       |
 
-```bash
-docker build -f deploy/docker/Dockerfile.backend -t artcraft-api:local .
-docker build -f deploy/docker/Dockerfile.web -t artcraft-web:local .
-```
+## Prerequisites
 
-## Uncloud (target pipeline)
+- Docker on the build machine.
+- Uncloud CLI (`uc`) with pre-deploy hook support.
+- Filled `deploy/uncloud/.env` (from `.env.example`).
+- For production: managed MySQL, Redis, Elasticsearch, and S3-compatible storage, **or**
+  `compose.infra.yaml` with `x-machines` volume placement.
+
+## Build and deploy
+
+From the repository root:
 
 ```bash
 cp deploy/uncloud/.env.example deploy/uncloud/.env
-# edit deploy/uncloud/.env with real endpoints and secrets
+# Edit deploy/uncloud/.env — set hosts, passwords, and public hostname.
 
-uc build -f deploy/uncloud/compose.app.yaml --push
-uc deploy -f deploy/uncloud/compose.app.yaml --no-build
+cd deploy/uncloud
+uc build -f compose.app.yaml --push
+uc deploy -f compose.app.yaml --no-build
+```
+
+With bundled infrastructure:
+
+```bash
+uc deploy -f compose.infra.yaml -f compose.app.yaml
+```
+
+Inspect services:
+
+```bash
 uc inspect artcraft-web
 uc inspect artcraft-api
 ```
 
-`artcraft-api` runs `deploy/docker/pre-deploy.sh` via `x-pre-deploy` before rollout (migrations bundled in the image).
+## Frontend API routing
 
-## Smoke test
+The web image sets `VITE_ARTCRAFT_SELF_HOSTED=true` at build time. In production the
+browser targets **same origin**; nginx proxies `/v1` and `/_status` to `artcraft-api`.
 
-```bash
-BASE_URL=https://studio.example.com deploy/tests/smoke.sh
-```
+Override with `VITE_API_ORIGIN` at build time or `ARTCRAFT_API_PUBLIC_ORIGIN` at runtime
+(`/config.js`).
+
+## Bootstrap
+
+`artcraft-api` runs `/opt/artcraft/pre-deploy.sh` via `x-pre_deploy` before rollout:
+
+1. MySQL migrations from `/opt/artcraft/migrations` (idempotent).
+2. Elasticsearch indexes from `/opt/artcraft/elasticsearch/index_definitions`.
+3. Optional S3 endpoint reachability check.
+
+Set `MYSQL_MIGRATION_*` to the DDL-capable user only if migrations should use a
+different account than runtime `MYSQL_URL` (recommended: migration user with DDL,
+runtime user without).
+
+## Workers
+
+`artcraft-worker-video-thumbnail` reuses the backend image. Add more workers by copying
+the service block and changing `command` to the desired binary.
+
+## Roadmap (spec v0.1)
+
+| Phase | Status in this repo                                      |
+|-------|----------------------------------------------------------|
+| 1. Docker baseline | Dockerfiles, compose, same-origin web, pre-deploy |
+| 2. Self-host cleanup | `SELF_HOSTED`, optional provider env vars, billing bypass |
+| 3. Keycloak OIDC | `/v1/auth/oidc/*`, `OIDC_*` env (worker sync TBD)   |
+| 4. Internal AI adapter | Client + env routing; worker/sync path TBD        |
+
+See `tests/auth-isolation.md` and `tests/generation-e2e.md` for acceptance criteria
+for later phases.
+
+## Local validation (Docker Compose)
+
+You can still use `build/selfhost/` for all-in-one local API testing. The Uncloud
+manifests target cluster deployment with a separate static frontend and pre-deploy
+migrations instead of `depends_on: service_completed_successfully`.
