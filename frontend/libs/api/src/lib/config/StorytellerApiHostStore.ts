@@ -47,8 +47,7 @@ export class StorytellerApiHostStore {
     if ((window as any).STORYTELLER_API_HOST_STORE !== undefined) {
       return (window as any).STORYTELLER_API_HOST_STORE;
     }
-    const productionDefault = readRuntimeApiOrigin() ?? DEFAULT_API_HOST_PRODUCTION;
-    const instance = new StorytellerApiHostStore(productionDefault);
+    const instance = new StorytellerApiHostStore(DEFAULT_API_HOST_PRODUCTION);
     (window as any).STORYTELLER_API_HOST_STORE = instance;
     return instance;
   }
