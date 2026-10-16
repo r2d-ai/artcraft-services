@@ -110,6 +110,10 @@ pub async fn login_handler(
   mysql_pool: web::Data<MySqlPool>,
 ) -> Result<HttpResponse, LoginErrorResponse>
 {
+  if easyenv::get_env_bool_or_default("OIDC_ONLY", false) {
+    return Err(LoginErrorResponse::invalid_credentials());
+  }
+
   let check_username_or_email = request.username_or_email.to_lowercase();
 
   // TODO(bt,2023-11-12): I need to prevent user lookup attacks.

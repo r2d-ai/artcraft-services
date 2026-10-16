@@ -15,6 +15,7 @@ pub mod folders;
 pub mod generic_download_jobs;
 pub mod generic_inference_jobs;
 pub mod google_sign_in_accounts;
+pub mod oidc_sign_in_accounts;
 pub mod mcp_session_private;
 pub mod mcp_session_refresh;
 pub mod mcp_sessions;

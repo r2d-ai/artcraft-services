@@ -1,3 +1,4 @@
+mod auth_routes;
 mod analytics_routes;
 mod api_keys_routes;
 mod billing_fakeyou_routes;

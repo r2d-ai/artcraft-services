@@ -17,6 +17,8 @@ members = [
   "crates/api_clients/fal_client",
   "crates/api_clients/google_drive_downloader",
   "crates/api_clients/google_sign_in",
+  "crates/api_clients/internal_provider_client",
+  "crates/api_clients/oidc_auth",
   "crates/api_clients/grok_api_client",
   "crates/api_clients/gmicloud_client",
   "crates/api_clients/muapi_client",

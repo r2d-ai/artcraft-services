@@ -61,36 +61,49 @@ pub struct WorldLabsData {
   pub api_key: String,
 }
 
+pub fn provider_env_string(env_name: &str) -> AnyhowResult<String> {
+  let self_hosted = easyenv::get_env_bool_or_default("SELF_HOSTED", false);
+  if self_hosted {
+    Ok(
+      easyenv::get_env_string_optional(env_name)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "unset".to_string()),
+    )
+  } else {
+    Ok(easyenv::get_env_string_required(env_name)?)
+  }
+}
+
 pub fn setup_inference_providers() -> AnyhowResult<InferenceProviders> {
   Ok(InferenceProviders {
     fal: FalData {
-      api_key: FalApiKey::new(easyenv::get_env_string_required("FAL_API_KEY")?),
-      webhook_url: easyenv::get_env_string_required("FAL_WEBHOOK_URL")?,
+      api_key: FalApiKey::new(provider_env_string("FAL_API_KEY")?),
+      webhook_url: provider_env_string("FAL_WEBHOOK_URL")?,
     },
     gmicloud: GmiCloudData {
       api_key: gmicloud_client::creds::gmicloud_api_key::GmiCloudApiKey::new(
-        easyenv::get_env_string_required("GMICLOUD_API_KEY")?,
+        provider_env_string("GMICLOUD_API_KEY")?,
       ),
     },
     grok_api: GrokApiData {
       api_key: grok_api_client::creds::grok_api_key::GrokApiKey::new(
-        easyenv::get_env_string_required("GROK_API_KEY")?,
+        provider_env_string("GROK_API_KEY")?,
       ),
     },
     beeble: BeebleData {
-      api_key: BeebleApiKey::new(easyenv::get_env_string_required("BEEBLE_API_KEY")?),
-      webhook_url: easyenv::get_env_string_required("BEEBLE_WEBHOOK_URL")?,
+      api_key: BeebleApiKey::new(provider_env_string("BEEBLE_API_KEY")?),
+      webhook_url: provider_env_string("BEEBLE_WEBHOOK_URL")?,
     },
     kinovi_web: KinoviWebData {
-      cookies_volcengine: easyenv::get_env_string_required("SEEDANCE2PRO_COOKIES")?,
-      cookies_byteplus: easyenv::get_env_string_required("SEEDANCE2PRO_WHITELIST_COOKIES")?,
-      cookies_byteplus_ultra: easyenv::get_env_string_required("SEEDANCE2PRO_BYTEPLUS_ULTRA_COOKIES")?,
+      cookies_volcengine: provider_env_string("SEEDANCE2PRO_COOKIES")?,
+      cookies_byteplus: provider_env_string("SEEDANCE2PRO_WHITELIST_COOKIES")?,
+      cookies_byteplus_ultra: provider_env_string("SEEDANCE2PRO_BYTEPLUS_ULTRA_COOKIES")?,
     },
     openai: OpenAiData {
-      api_key: easyenv::get_env_string_required("OPENAI_API_KEY")?,
+      api_key: provider_env_string("OPENAI_API_KEY")?,
     },
     worldlabs: WorldLabsData {
-      api_key: easyenv::get_env_string_required("WORLDLABS_API_KEY")?,
+      api_key: provider_env_string("WORLDLABS_API_KEY")?,
     },
   })
 }

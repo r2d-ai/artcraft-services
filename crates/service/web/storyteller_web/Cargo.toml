@@ -63,6 +63,8 @@ gmicloud_client.workspace = true
 grok_api_client.workspace = true
 filesys.workspace = true
 google_sign_in = { path = "../../../api_clients/google_sign_in" }
+internal_provider_client = { path = "../../../api_clients/internal_provider_client" }
+oidc_auth = { path = "../../../api_clients/oidc_auth" }
 hashing = { path = "../../../lib/files/hashing" }
 http_server_common = { path = "../../../lib/deprecated/http_server_common" }
 uuid_utils = { path = "../../../lib/uuid_utils" }

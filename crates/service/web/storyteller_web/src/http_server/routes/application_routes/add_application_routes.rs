@@ -1,3 +1,4 @@
+use crate::http_server::routes::application_routes::auth_routes::add_auth_routes;
 use crate::http_server::routes::application_routes::analytics_routes::add_analytics_routes;
 use crate::http_server::routes::application_routes::api_keys_routes::add_api_keys_routes;
 use crate::http_server::routes::application_routes::billing_fakeyou_routes::add_billing_fakeyou_routes;
@@ -79,6 +80,8 @@ where
   app = add_web_referrals_routes(app); // /v1/web_referrals/...
   app = add_craft_apps_routes(app); // /v1/craft_apps/... (ArtCraft Launcher release info)
   app = add_dev_routes(app); // /v1/dev/... — dev-only error/response shape probes
+
+  app = add_auth_routes(app); // /v1/auth/...
 
   // User and user-adjacent routes
   app = add_comments_routes(app); // /v1/comments/...

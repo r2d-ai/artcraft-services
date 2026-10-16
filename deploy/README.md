@@ -79,9 +79,9 @@ the service block and changing `command` to the desired binary.
 | Phase | Status in this repo                                      |
 |-------|----------------------------------------------------------|
 | 1. Docker baseline | Dockerfiles, compose, same-origin web, pre-deploy |
-| 2. Self-host cleanup | Optional providers, billing bypass — not yet        |
-| 3. Keycloak OIDC | Env placeholders only                               |
-| 4. Internal AI adapter | Env placeholders only                           |
+| 2. Self-host cleanup | `SELF_HOSTED`, optional provider env vars, billing bypass |
+| 3. Keycloak OIDC | `/v1/auth/oidc/*`, `OIDC_*` env (worker sync TBD)   |
+| 4. Internal AI adapter | Client + env routing; worker/sync path TBD        |
 
 See `tests/auth-isolation.md` and `tests/generation-e2e.md` for acceptance criteria
 for later phases.

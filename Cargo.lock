@@ -4680,6 +4680,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "internal_provider_client"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "base64 0.13.1",
+ "errors",
+ "log",
+ "reqwest 0.12.23",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "url",
+ "workspace-build-acceleration",
+]
+
+[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6056,6 +6072,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c8bb09a4a2b1d668170cfe0a7d5bc103f8999fb316c98099b6a9939c9f2e79d"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "oidc_auth"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "base64 0.13.1",
+ "errors",
+ "jwt-simple",
+ "rand 0.9.2",
+ "reqwest 0.12.23",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sha2 0.11.0-rc.5",
+ "url",
+ "workspace-build-acceleration",
 ]
 
 [[package]]
@@ -8745,6 +8779,7 @@ dependencies = [
  "http_server_common",
  "images",
  "infer 0.16.0",
+ "internal_provider_client",
  "jwt_signer",
  "kinovi_web_client",
  "language-tags",
@@ -8761,6 +8796,7 @@ dependencies = [
  "mimetypes",
  "mysql_queries",
  "mysql_testing",
+ "oidc_auth",
  "once_cell",
  "opaque_cursors",
  "pager",

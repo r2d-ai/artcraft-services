@@ -10,6 +10,8 @@ use crate::http_server::user_lookup::user_session::session_utils::session_checke
 use crate::http_server::web_utils::redis_rate_limiter::RedisRateLimiter;
 use crate::http_server::web_utils::scoped_temp_dir_creator::ScopedTempDirCreator;
 use crate::startup::setup_inference_providers::InferenceProviders;
+use crate::startup::setup_oidc::OidcConfig;
+use crate::startup::setup_self_hosted::SelfHostedConfig;
 use crate::state::certs::google_sign_in_cert::GoogleSignInCert;
 use crate::state::flags::paging_flags::PagingFlags;
 use crate::state::memory_cache::model_token_to_info_cache::ModelTokenToInfoCache;
@@ -100,6 +102,10 @@ pub struct ServerState {
   pub seedance_video_bucket: Option<SeedanceVideoBucketClient>,
 
   pub inference_providers: InferenceProviders,
+
+  pub self_hosted_config: SelfHostedConfig,
+
+  pub oidc_config: Option<OidcConfig>,
 
   pub resend: ResendData,
 

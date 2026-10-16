@@ -19,6 +19,7 @@ pub mod generic_download;
 pub mod generic_inference;
 pub mod generic_synthetic_ids;
 pub mod google_sign_in_accounts;
+pub mod oidc_sign_in_accounts;
 pub mod health_check;
 pub mod idepotency_tokens;
 pub mod ip_bans;

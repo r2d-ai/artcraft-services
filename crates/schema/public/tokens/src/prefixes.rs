@@ -36,6 +36,7 @@ pub(crate) enum TokenPrefix {
   EmailSenderJob,
   Folder,
   GoogleSignInAccount,
+  OidcSignInAccount,
   InferenceJob,
   McpSession,
   McpSessionPrivate, // The private credential for an MCP session; carries more entropy.
@@ -126,6 +127,7 @@ impl PrefixGenerator for TokenPrefix {
       Self::EmailSenderJob => "email_job_",
       Self::Folder => "folder_",
       Self::GoogleSignInAccount => "gsi_",
+      Self::OidcSignInAccount => "oac_",
       Self::InferenceJob => "jinf_",
       Self::McpSession => "mcp_",
       Self::McpSessionPrivate => "mcp_session_",

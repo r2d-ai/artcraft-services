@@ -61,9 +61,12 @@ pub async fn run_pipeline_v2(
     resolved_media,
   );
   
-  let cost = estimate_cost_in_credits(&router_builder)?;
+  let mut cost = estimate_cost_in_credits(&router_builder)?;
+  if server_state.self_hosted_config.skip_credit_billing {
+    cost = 0;
+  }
 
-  let draft_or_request = build_execution_request(&hydrated_builder)?;
+  let draft_or_request = build_execution_request(&hydrated_builder, server_state)?;
 
   info!("Charging wallet: {} credits", cost);
 
@@ -100,7 +103,13 @@ pub async fn run_pipeline_v2(
   // across the external generation call below.
   drop(mysql_connection);
 
-  let response = finalize_and_generate(draft_or_request, server_state, resolved_media, kinovi_account).await?;
+  let response = finalize_and_generate(
+    draft_or_request,
+    router_builder,
+    server_state,
+    resolved_media,
+    kinovi_account,
+  ).await?;
 
   Ok(ImagePipelineResult {
     apriori_job_token,
@@ -111,9 +120,10 @@ pub async fn run_pipeline_v2(
 
 fn build_execution_request(
   router_builder: &GenerateImageRequestBuilder,
+  server_state: &ServerState,
 ) -> Result<ImageGenerationDraftOrRequest, CommonWebError> {
   let mut execution_builder = router_builder.clone();
-  execution_builder.provider = provider_for_model(execution_builder.model);
+  execution_builder.provider = provider_for_model(execution_builder.model, server_state);
 
   execution_builder.build2().map_err(|e| {
     warn!("Failed to build2 for image v2 pipeline: {}", e);
@@ -125,7 +135,11 @@ fn build_execution_request(
 /// Seedream 5.0 Pro (both variants) are served via the KinoviWeb/Kinovi
 /// backend; everything else flows through Fal. Which Kinovi account fulfils
 /// a Kinovi request is the handler's `kinovi_account` choice.
-fn provider_for_model(model: RouterImageModel) -> RouterProvider {
+fn provider_for_model(model: RouterImageModel, server_state: &ServerState) -> RouterProvider {
+  if should_route_to_internal_provider(model, server_state) {
+    return RouterProvider::Fal;
+  }
+
   match model {
     RouterImageModel::Midjourney7
     | RouterImageModel::Midjourney7Niji
@@ -134,6 +148,19 @@ fn provider_for_model(model: RouterImageModel) -> RouterProvider {
     | RouterImageModel::Seedream5p0ProUltra => RouterProvider::KinoviWeb,
     _ => RouterProvider::Fal,
   }
+}
+
+fn should_route_to_internal_provider(model: RouterImageModel, server_state: &ServerState) -> bool {
+  let model_name = serde_json::to_string(&model)
+    .unwrap_or_default()
+    .trim_matches('"')
+    .to_string();
+  server_state
+    .self_hosted_config
+    .internal_provider
+    .as_ref()
+    .map(|config| config.routed_image_models.iter().any(|entry| entry == &model_name))
+    .unwrap_or(false)
 }
 
 fn apply_hydrated_media_inputs(
@@ -175,10 +202,17 @@ fn estimate_cost_in_credits(
 
 async fn finalize_and_generate(
   draft_or_request: ImageGenerationDraftOrRequest,
+  router_builder: &GenerateImageRequestBuilder,
   server_state: &ServerState,
   resolved_media: &MediaFilesAsCdnUrlListAndMap,
   kinovi_account: KinoviAccount,
 ) -> Result<GenerateImageResponse, CommonWebError> {
+  if should_route_to_internal_provider(router_builder.model, server_state) {
+    return Err(CommonWebError::server_error_with_message(
+      "internal image provider is configured but synchronous routing is not enabled in this build; deploy artcraft-worker-internal",
+    ));
+  }
+
   let provider = draft_or_request.get_provider();
   let client = build_router_client(provider, server_state, kinovi_account)?;
 

@@ -56,6 +56,7 @@ use crate::http_server::user_lookup::user_session::session_utils::session_checke
 use crate::http_server::web_utils::scoped_temp_dir_creator::ScopedTempDirCreator;
 use crate::http_server::web_utils::web_opaque_cursor_encoder_v2::WebOpaqueCursorEncoderV2;
 use crate::http_server::web_utils::web_sort_key_crypto::WebSortKeyCrypto;
+use crate::startup::setup_self_hosted::SelfHostedConfig;
 use crate::startup::setup_inference_providers::{
   BeebleData, FalData, GmiCloudData, GrokApiData, InferenceProviders, KinoviWebData, OpenAiData,
   WorldLabsData,
@@ -697,6 +698,13 @@ pub(crate) fn build_test_server_state(pool: MySqlPool, media_cdn_override_url: S
       openai: OpenAiData { api_key: "test".to_string() },
       worldlabs: WorldLabsData { api_key: "test".to_string() },
     },
+    self_hosted_config: SelfHostedConfig {
+      enabled: false,
+      skip_credit_billing: false,
+      disable_public_signup: false,
+      internal_provider: None,
+    },
+    oidc_config: None,
     resend: ResendData { api_key: "test".to_string() },
     pager,
     audio_uploads_bucket_root: "test-audio-uploads".to_string(),

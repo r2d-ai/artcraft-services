@@ -152,6 +152,10 @@ pub async fn create_account_handler(
   firehose_publisher: web::Data<FirehosePublisher>,
 ) -> Result<HttpResponse, CreateAccountErrorResponse>
 {
+  if easyenv::get_env_bool_or_default("OIDC_ONLY", false) {
+    return Err(CreateAccountErrorResponse::server_error());
+  }
+
   let mut error_fields = HashMap::new();
 
   if let Err(reason) = validate_username(&request.username) {
