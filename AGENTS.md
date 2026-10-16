@@ -125,3 +125,16 @@ Organize for top-to-bottom reading. Important things first, details later.
 
   Not: `| Model | Configuration | Credits | Speed | Score |` packed tight
   with varying widths per row.
+
+## Cursor Cloud specific instructions
+
+The Cloud Agent VM does not run systemd (`tini` is pid 1). `systemctl` and `service` do not start MySQL or Redis. The environment start script launches `mysqld` and `redis-server` directly, applies `_database/sql/migrations`, then starts the API and both web dev servers.
+
+- MySQL is Ubuntu's MySQL 8.0 (the migrations apply cleanly). Database `storyteller`, user `storyteller`, password `password`. Connection string: `mysql://storyteller:password@localhost/storyteller`. Redis is `redis://127.0.0.1:6379/0`.
+- Rust crates use edition 2024. Stable rustc 1.85+ is required; the base image's 1.83 toolchain cannot compile this repo. `/usr/bin/c++` is clang++, so `libstdc++-14-dev` must be installed or the `boring-sys` build script fails to link.
+- From the repo root, check and build the API with `SQLX_OFFLINE=true cargo check -p storyteller-web` and `SQLX_OFFLINE=true cargo build -p storyteller-web --bin storyteller-web`. The debug binary listens on `0.0.0.0:12345`. `GET /_status` returns `is_healthy: true` when MySQL is up.
+- Provider credentials in the start script are placeholders (`unset`). Signup, login, and `GET /v1/omni_gen/models/image` work. Provider generation, email, and object-storage uploads do not. Elasticsearch is not started; the process still boots.
+- The Nx app and the marketing site are separate installs. `frontend/` uses npm (`npm install`). `frontend/apps/artcraft-website-next` is excluded from that workspace and has its own `npm install`.
+- Webapp dev server: `cd frontend && VITE_USE_LOCAL_API=true npx nx dev @frontend/artcraft-webapp --host 0.0.0.0 --port 4201 --skip-sync`. `--skip-sync` avoids an interactive Nx project-reference prompt. `VITE_USE_LOCAL_API=true` targets `http://localhost:12345`. The site is http://localhost:4201.
+- Marketing site: `cd frontend/apps/artcraft-website-next && npm run dev -- --port 3000 --hostname 0.0.0.0`. It uses the hosted API unless `USE_LOCAL_API=1`. The site is http://localhost:3000.
+- A local-only sample user `cloudagent` / `CloudAgent1` is present in the development database from environment setup. It is not a production account.
