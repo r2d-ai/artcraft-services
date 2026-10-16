@@ -70,6 +70,37 @@ export class StorytellerApiHostStore {
    * Externally update the API host. 
    * This is used to sync with Tauri for enabling easier development.
    */
+  /**
+   * Self-hosted / Uncloud production: same-origin API via the web reverse proxy,
+   * unless VITE_API_ORIGIN or runtime config.js overrides it.
+   */
+  public configureSelfHostedProduction() {
+    const buildTimeOrigin = import.meta.env.VITE_API_ORIGIN;
+    if (typeof buildTimeOrigin === "string" && buildTimeOrigin.length > 0) {
+      this.setApiSchemeAndHost(buildTimeOrigin);
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      this.setApiSchemeAndHost(window.location.origin);
+    }
+
+    this.applyRuntimeConfigOverride();
+  }
+
+  /** Optional runtime override from `/config.js` (nginx entrypoint). */
+  public applyRuntimeConfigOverride() {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const runtime = (window as { __ARTCRAFT_RUNTIME_CONFIG__?: { apiOrigin?: string } })
+      .__ARTCRAFT_RUNTIME_CONFIG__;
+    const apiOrigin = runtime?.apiOrigin;
+    if (typeof apiOrigin === "string" && apiOrigin.length > 0) {
+      this.setApiSchemeAndHost(apiOrigin);
+    }
+  }
+
   public setApiSchemeAndHost(apiSchemeAndHost: string) {
     console.debug("StorytellerApiHostStore.setApiSchemeAndHost()", apiSchemeAndHost, this.constructor.name);
 

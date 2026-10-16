@@ -1,0 +1,84 @@
+# ArtCraft application stack for Uncloud.
+# Build on a runner with Docker; deploy with:
+#   uc build -f deploy/uncloud/compose.app.yaml --push
+#   uc deploy -f deploy/uncloud/compose.app.yaml --no-build
+#
+# Combine with compose.infra.yaml when dependencies are not external:
+#   uc deploy -f deploy/uncloud/compose.infra.yaml -f deploy/uncloud/compose.app.yaml
+
+services:
+  artcraft-api:
+    image: artcraft-backend:${ARTCRAFT_IMAGE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+    env_file:
+      - .env
+    environment:
+      SERVER_ENVIRONMENT: ${SERVER_ENVIRONMENT:-production}
+      BIND_ADDRESS: 0.0.0.0:12345
+      MYSQL_URL: ${MYSQL_URL}
+      REDIS_0_URL: ${REDIS_0_URL}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
+      S3_COMPATIBLE_ENDPOINT_URL: ${S3_COMPATIBLE_ENDPOINT_URL}
+      ACCESS_KEY: ${S3_ACCESS_KEY}
+      SECRET_KEY: ${S3_SECRET_KEY}
+      REGION_NAME: ${REGION_NAME:-us-east-1}
+      W2L_PRIVATE_DOWNLOAD_BUCKET_NAME: ${W2L_PRIVATE_DOWNLOAD_BUCKET_NAME}
+      W2L_PUBLIC_DOWNLOAD_BUCKET_NAME: ${W2L_PUBLIC_DOWNLOAD_BUCKET_NAME}
+      GC_ENABLED_PUBLIC_BUCKET_NAME: ${GC_ENABLED_PUBLIC_BUCKET_NAME}
+      AUDIO_UPLOADS_BUCKET_ROOT: ${AUDIO_UPLOADS_BUCKET_ROOT:-/user_uploaded_audio}
+      MYSQL_MIGRATION_HOST: ${MYSQL_MIGRATION_HOST}
+      MYSQL_MIGRATION_PORT: ${MYSQL_MIGRATION_PORT:-3306}
+      MYSQL_MIGRATION_USER: ${MYSQL_MIGRATION_USER}
+      MYSQL_MIGRATION_PASSWORD: ${MYSQL_MIGRATION_PASSWORD}
+      MYSQL_MIGRATION_DATABASE: ${MYSQL_MIGRATION_DATABASE:-storyteller}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      COOKIE_SECRET: ${COOKIE_SECRET}
+      SORT_KEY_SECRET: ${SORT_KEY_SECRET}
+      WEBSITE_HOMEPAGE_REDIRECT: ${WEBSITE_HOMEPAGE_REDIRECT}
+      NUM_WORKERS: ${NUM_WORKERS:-4}
+    x-pre_deploy:
+      command: ["/opt/artcraft/pre-deploy.sh"]
+      timeout: 30m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:12345/_status || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+
+  artcraft-web:
+    image: artcraft-web:${ARTCRAFT_IMAGE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.web
+      args:
+        VITE_ARTCRAFT_SELF_HOSTED: "true"
+        VITE_API_ORIGIN: ${VITE_API_ORIGIN:-}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    environment:
+      ARTCRAFT_API_PUBLIC_ORIGIN: ${ARTCRAFT_API_PUBLIC_ORIGIN:-}
+    depends_on:
+      - artcraft-api
+    x-ports:
+      - ${ARTCRAFT_PUBLIC_HOST:-studio.example.com}:8080/https
+
+  artcraft-worker-video-thumbnail:
+    image: artcraft-backend:${ARTCRAFT_IMAGE_TAG:-local}
+    command: ["/video-thumbnail-job"]
+    env_file:
+      - .env
+    environment:
+      SERVER_ENVIRONMENT: ${SERVER_ENVIRONMENT:-production}
+      MYSQL_URL: ${MYSQL_URL}
+      S3_COMPATIBLE_ENDPOINT_URL: ${S3_COMPATIBLE_ENDPOINT_URL}
+      ACCESS_KEY: ${S3_ACCESS_KEY}
+      SECRET_KEY: ${S3_SECRET_KEY}
+      REGION_NAME: ${REGION_NAME:-us-east-1}
+      PUBLIC_BUCKET_NAME: ${W2L_PUBLIC_DOWNLOAD_BUCKET_NAME}
+    depends_on:
+      - artcraft-api

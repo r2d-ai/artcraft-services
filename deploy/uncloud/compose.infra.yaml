@@ -1,0 +1,104 @@
+# Optional infrastructure when MySQL, Redis, Elasticsearch, or S3 are not
+# provided as managed services. Service names use the artcraft- prefix for Uncloud.
+#
+# Pin stateful volumes to machines with x-machines before production use.
+# Do not scale MySQL/Redis/Elasticsearch by increasing replicas.
+
+services:
+  artcraft-mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-storyteller}
+      MYSQL_USER: ${MYSQL_USER:-storyteller}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - artcraft-mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-p${MYSQL_ROOT_PASSWORD}",
+          "--silent",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  artcraft-redis:
+    image: redis:7
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - artcraft-redis-data:/data
+
+  artcraft-elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTICSEARCH_PASSWORD}
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - artcraft-elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fs -u elastic:${ELASTICSEARCH_PASSWORD} http://localhost:9200/_cluster/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # Optional local S3-compatible storage (omit when using company object storage).
+  artcraft-seaweedfs:
+    image: chrislusf/seaweedfs:3.97
+    profiles: ["local-s3"]
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+    configs:
+      - source: artcraft-seaweedfs-s3
+        target: /etc/seaweedfs/s3.json
+    volumes:
+      - artcraft-seaweedfs-data:/data
+
+  artcraft-storage-init:
+    image: chrislusf/seaweedfs:3.97
+    profiles: ["local-s3"]
+    depends_on:
+      - artcraft-seaweedfs
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        for bucket in artcraft-private artcraft-public artcraft-public-gc; do
+          echo "s3.bucket.create -name $$bucket" | weed shell -master=artcraft-seaweedfs:9333
+        done
+
+configs:
+  artcraft-seaweedfs-s3:
+    content: |
+      {
+        "identities": [
+          {
+            "name": "artcraft",
+            "credentials": [
+              {
+                "accessKey": "${S3_ACCESS_KEY}",
+                "secretKey": "${S3_SECRET_KEY}"
+              }
+            ],
+            "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+          }
+        ]
+      }
+
+volumes:
+  artcraft-mysql-data:
+  artcraft-redis-data:
+  artcraft-elasticsearch-data:
+  artcraft-seaweedfs-data:
