@@ -1,0 +1,35 @@
+# Optional local dependencies when external MySQL/Redis/ES/S3 are not available.
+services:
+  artcraft-mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: storyteller
+      MYSQL_USER: storyteller
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - artcraft-mysql-data:/var/lib/mysql
+
+  artcraft-redis:
+    image: redis:7
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - artcraft-redis-data:/data
+
+  artcraft-elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTICSEARCH_PASSWORD}
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - artcraft-elasticsearch-data:/usr/share/elasticsearch/data
+
+volumes:
+  artcraft-mysql-data:
+  artcraft-redis-data:
+  artcraft-elasticsearch-data:

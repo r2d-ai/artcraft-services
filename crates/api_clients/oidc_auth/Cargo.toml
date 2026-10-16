@@ -1,0 +1,23 @@
+[package]
+name = "oidc_auth"
+edition = "2018"
+version = "0.0.1"
+publish = false
+
+[lib]
+name = "oidc_auth"
+path = "src/lib.rs"
+
+[dependencies]
+workspace-build-acceleration.workspace = true
+base64 = "0.13"
+anyhow.workspace = true
+errors.workspace = true
+jwt-simple = { version = "0.12.10", default-features = false, features = ["pure-rust"] }
+rand.workspace = true
+sha2.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_derive.workspace = true
+serde_json.workspace = true
+url.workspace = true

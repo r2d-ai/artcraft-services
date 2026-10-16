@@ -10,6 +10,7 @@ import {
   AuthHeader,
   AuthFooter,
   GoogleLoginButton,
+  OidcLoginButton,
 } from "../../components/auth";
 import Seo from "../../components/seo";
 import { refreshSession } from "../../lib/session";
@@ -164,6 +165,10 @@ const Login = () => {
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
           />
+        </div>
+
+        <div className="mt-3">
+          <OidcLoginButton />
         </div>
 
         <div>

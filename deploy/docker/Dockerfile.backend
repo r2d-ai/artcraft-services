@@ -1,0 +1,41 @@
+# ArtCraft API — reuses the upstream multi-stage Rust image.
+FROM ubuntu:jammy AS final-container
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y \
+        ca-certificates \
+        ffmpeg \
+        --no-install-recommends \
+    && apt-get clean autoclean && apt-get autoremove -y && rm -rf /var/lib/{apt,dpkg,cache,log}/
+
+FROM rust:1.93.0-bookworm AS builder
+
+WORKDIR /build
+COPY Cargo.lock Cargo.toml ./
+COPY .sqlx/ .sqlx
+COPY _database ./_database
+COPY crates/ ./crates
+COPY includes/ ./includes
+COPY test_data/ ./test_data
+
+RUN SQLX_OFFLINE=true cargo build --release --bin storyteller-web
+
+FROM final-container
+
+ARG GIT_SHA=unknown
+RUN echo -n ${GIT_SHA} > /GIT_SHA
+
+COPY --from=builder /build/target/release/storyteller-web /storyteller-web
+COPY --from=builder /etc/ssl /etc/ssl
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libssl.so* /lib/x86_64-linux-gnu/
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libcrypto.so* /lib/x86_64-linux-gnu/
+COPY includes/ /includes
+COPY _database/sql/migrations /migrations
+COPY deploy/docker/pre-deploy.sh /pre-deploy.sh
+COPY crates/service/web/storyteller_web/config/storyteller-web.common.env /storyteller-web.common.env
+COPY crates/service/web/storyteller_web/config/storyteller-web.production.env /storyteller-web.production.env
+
+RUN chmod +x /pre-deploy.sh && touch .env .env-secrets
+
+EXPOSE 12345
+CMD ["/storyteller-web"]

@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod analytics;
 pub mod api_keys;
 pub mod app_state;

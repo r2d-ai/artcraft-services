@@ -2,6 +2,19 @@
 const DEFAULT_API_HOST_PRODUCTION = "https://api.storyteller.ai";
 const DEFAULT_API_HOST_DEVELOPMENT = "http://localhost:12345";
 
+function readRuntimeApiOrigin(): string | undefined {
+  const runtime = (window as { __ARTCRAFT_RUNTIME_CONFIG__?: { apiOrigin?: string } })
+    .__ARTCRAFT_RUNTIME_CONFIG__;
+  const origin = runtime?.apiOrigin?.trim();
+  if (!origin) {
+    return undefined;
+  }
+  if (!origin.startsWith("http://") && !origin.startsWith("https://")) {
+    return undefined;
+  }
+  return origin;
+}
+
 
 // NB(bt,2025-09-25): 'nx' is creating multiple copies of the library with name 
 //   mangling, so the singleton pattern fails to resolve to a single instance.
@@ -34,7 +47,8 @@ export class StorytellerApiHostStore {
     if ((window as any).STORYTELLER_API_HOST_STORE !== undefined) {
       return (window as any).STORYTELLER_API_HOST_STORE;
     }
-    const instance = new StorytellerApiHostStore(DEFAULT_API_HOST_PRODUCTION);
+    const productionDefault = readRuntimeApiOrigin() ?? DEFAULT_API_HOST_PRODUCTION;
+    const instance = new StorytellerApiHostStore(productionDefault);
     (window as any).STORYTELLER_API_HOST_STORE = instance;
     return instance;
   }

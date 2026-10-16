@@ -19,6 +19,15 @@ const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
 );
 
+// Self-hosted / dockerized deployments proxy /v1 on the same origin as the webapp.
+if (!import.meta.env.DEV) {
+  try {
+    StorytellerApiHostStore.getInstance().setApiSchemeAndHost(window.location.origin);
+  } catch (e) {
+    console.warn("Failed to set production same-origin API host", e);
+  }
+}
+
 // In development, route API through the Vite dev server origin to avoid CORS
 if (import.meta.env.DEV) {
   try {

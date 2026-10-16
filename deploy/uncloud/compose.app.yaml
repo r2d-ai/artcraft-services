@@ -1,0 +1,39 @@
+# Uncloud application stack (artcraft-* service prefix required).
+services:
+  artcraft-api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+    image: artcraft-api:local
+    restart: unless-stopped
+    environment:
+      SERVER_ENVIRONMENT: production
+      BIND_ADDRESS: 0.0.0.0:12345
+      SELF_HOSTED: ${SELF_HOSTED:-true}
+      OIDC_ENABLED: ${OIDC_ENABLED:-false}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
+      OIDC_POST_LOGIN_REDIRECT: ${OIDC_POST_LOGIN_REDIRECT:-/}
+      OIDC_ONLY: ${OIDC_ONLY:-false}
+      INTERNAL_PROVIDER_URL: ${INTERNAL_PROVIDER_URL:-}
+      INTERNAL_PROVIDER_API_KEY: ${INTERNAL_PROVIDER_API_KEY:-}
+      INTERNAL_PROVIDER_IMAGE_MODEL: ${INTERNAL_PROVIDER_IMAGE_MODEL:-default}
+      MYSQL_URL: ${MYSQL_URL}
+      REDIS_0_URL: ${REDIS_0_URL}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
+    x-pre-deploy:
+      command: ["/pre-deploy.sh"]
+      timeout: 900
+
+  artcraft-web:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.web
+    image: artcraft-web:local
+    restart: unless-stopped
+    depends_on:
+      - artcraft-api
+    ports:
+      - "${PUBLIC_HTTP_PORT:-8080}:8080"

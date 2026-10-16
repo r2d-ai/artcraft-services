@@ -49,6 +49,11 @@ impl RedisKeys {
     format!("genericInferenceKeepAlive:{}", inference_job_token)
   }
 
+  /// Short-lived OIDC authorization state (PKCE verifier + nonce).
+  pub fn oidc_auth_state(state: &str) -> String {
+    format!("oidcAuthState:{}", state)
+  }
+
   /// We write extra in-progress status information to keys.
   /// These keys should have a TTL.
   pub fn tts_inference_extra_status_info(inference_job_token: &str) -> String {
