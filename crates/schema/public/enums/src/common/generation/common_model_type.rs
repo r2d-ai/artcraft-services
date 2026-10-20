@@ -123,6 +123,10 @@ pub enum CommonModelType {
   /// Midjourney v8 as routed via kinovi
   #[serde(rename = "midjourney_8")]
   Midjourney8,
+  /// Self-host deployments: an image model served by the internal
+  /// (OpenAI-compatible) provider. See `INTERNAL_PROVIDER_ROUTED_IMAGE_MODELS`.
+  #[serde(rename = "minimax_image")]
+  MinimaxImage,
 
   //// Image Infill models
   //#[serde(rename = "flux_pro_1_infill")]
@@ -340,6 +344,7 @@ impl CommonModelType {
       Self::Midjourney7 => "midjourney_7",
       Self::Midjourney7Niji => "midjourney_7_niji",
       Self::Midjourney8 => "midjourney_8",
+      Self::MinimaxImage => "minimax_image",
 
       // Video models
       Self::GrokVideo => "grok_video",
@@ -465,6 +470,7 @@ impl CommonModelType {
       "midjourney_7" => Ok(Self::Midjourney7),
       "midjourney_7_niji" => Ok(Self::Midjourney7Niji),
       "midjourney_8" => Ok(Self::Midjourney8),
+      "minimax_image" => Ok(Self::MinimaxImage),
 
       // Video models
       "grok_video" => Ok(Self::GrokVideo),
@@ -594,6 +600,7 @@ impl CommonModelType {
       Self::Midjourney7,
       Self::Midjourney7Niji,
       Self::Midjourney8,
+      Self::MinimaxImage,
 
       // Video models
       Self::GrokVideo,
@@ -688,6 +695,7 @@ impl CommonModelType {
       Self::FluxPro11Ultra => CommonModelClass::Image,
       Self::FluxProKontextMax => CommonModelClass::Image,
       Self::Flux2LoraAngles => CommonModelClass::Image,
+      Self::MinimaxImage => CommonModelClass::Image,
       Self::GptImage1 => CommonModelClass::Image,
       Self::GptImage1p5 => CommonModelClass::Image,
       Self::GptImage2 => CommonModelClass::Image,

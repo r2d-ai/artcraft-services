@@ -15,6 +15,7 @@ import {
 import Seo from "../../components/seo";
 import { refreshSession } from "../../lib/session";
 import { hasActiveSubscription } from "../../lib/billing";
+import { SELF_HOST } from "../../config/self_host";
 import { authContinuationUrl, LOGIN_BRIDGE_PATH, safeAuthReturnPath } from "../../lib/login-bridge-context";
 
 const Login = () => {
@@ -64,7 +65,9 @@ const Login = () => {
       refreshSession(true),
       hasActiveSubscription(),
     ]);
-    navigate(subscribed ? redirectTo : "/pricing");
+    navigate(
+      subscribed ? redirectTo : SELF_HOST ? "/" : "/pricing",
+    );
   };
 
   const handleGoogleError = (message: string) => {

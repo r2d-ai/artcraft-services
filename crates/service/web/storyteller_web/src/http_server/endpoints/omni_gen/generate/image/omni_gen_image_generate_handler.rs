@@ -171,10 +171,18 @@ server_state.maybe_media_cdn_override_url.as_deref(),
     request_url: &request_url,
   };
 
+  let api_image_model_id = request
+    .model
+    .as_ref()
+    .ok_or_else(|| CommonWebError::BadInputWithSimpleMessage("model is required".to_string()))?
+    .api_id();
+
   let pipeline_result = run_pipeline_v2(RunPipelineV2Args {
     router_builder: &router_builder,
+    api_image_model_id: &api_image_model_id,
     server_state: &server_state,
     user_token,
+    ip_address: &ip_address,
     resolved_media: &resolved_media,
     kinovi_account,
     debug_log_context: &debug_log_context,

@@ -640,6 +640,16 @@ pub(crate) fn build_test_server_state(pool: MySqlPool, media_cdn_override_url: S
     }
   }));
 
+  let omni_gen_catalog_setup = crate::startup::setup_omni_gen_catalog::setup_omni_gen_catalog(
+    SelfHostedConfig {
+      enabled: false,
+      skip_credit_billing: false,
+      disable_public_signup: false,
+      internal_provider: None,
+    },
+  )
+  .expect("omni catalog");
+
   ServerState {
     env_config: EnvConfig {
       num_workers: 1,
@@ -698,12 +708,8 @@ pub(crate) fn build_test_server_state(pool: MySqlPool, media_cdn_override_url: S
       openai: OpenAiData { api_key: "test".to_string() },
       worldlabs: WorldLabsData { api_key: "test".to_string() },
     },
-    self_hosted_config: SelfHostedConfig {
-      enabled: false,
-      skip_credit_billing: false,
-      disable_public_signup: false,
-      internal_provider: None,
-    },
+    self_hosted_config: omni_gen_catalog_setup.1,
+    omni_gen_catalog: omni_gen_catalog_setup.0,
     oidc_config: None,
     resend: ResendData { api_key: "test".to_string() },
     pager,

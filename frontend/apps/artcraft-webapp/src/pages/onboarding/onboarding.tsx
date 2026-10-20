@@ -5,6 +5,7 @@ import { Input } from "@storyteller/ui-input";
 import { CircleCheckIcon, InfoIcon, LoaderCircleIcon } from "lucide-react";
 import Seo from "../../components/seo";
 import { UsersApi, BillingApi } from "@storyteller/api";
+import { SELF_HOST } from "../../config/self_host";
 
 interface OnboardingData {
   email_not_set: boolean;
@@ -76,7 +77,7 @@ const Onboarding = () => {
         if (subResponse.success && subResponse.data) {
           const hasActiveSub = subResponse.data.active_subscriptions.length > 0;
           if (!hasActiveSub) {
-            navigate("/pricing");
+            navigate(SELF_HOST ? "/" : "/pricing");
             return;
           }
         }

@@ -18,6 +18,7 @@ import { useSession } from "../../lib/session";
 import { AccountSection } from "./AccountSection";
 import { ApiKeySection } from "./ApiKeySection";
 import { BillingSection } from "./BillingSection";
+import { SELF_HOST } from "../../config/self_host";
 
 type Tab = "general" | "keybinds" | "account" | "billing" | "apiKeys";
 
@@ -34,6 +35,11 @@ const TABS: { id: Tab; label: string; icon: typeof SettingsIcon }[] = [
   { id: "apiKeys", label: "API Keys", icon: KeyIcon },
 ];
 
+// Self-host deployments have no billing, so the Billing tab disappears and
+// nothing can focus it.
+const VISIBLE_TABS = TABS.filter((t) => !(SELF_HOST && t.id === "billing"));
+
+
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [tab, setTab] = useState<Tab>("general");
 
@@ -41,7 +47,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     if (isOpen) setTab("general");
   }, [isOpen]);
 
-  const activeLabel = TABS.find((t) => t.id === tab)?.label ?? "";
+  const activeLabel =
+    VISIBLE_TABS.find((t) => t.id === tab)?.label ?? TABS[0].label;
 
   return (
     <Modal
@@ -60,7 +67,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
             <hr className="my-2 hidden w-full border-ui-panel-border sm:block" />
             <div className="flex gap-2 overflow-x-auto pe-10 sm:block sm:space-y-1 sm:overflow-visible sm:pe-0">
-              {TABS.map((t) => (
+              {VISIBLE_TABS.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
@@ -94,7 +101,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </div>
               )}
               {tab === "account" && <AccountPanel />}
-              {tab === "billing" && <BillingPanel onCloseModal={onClose} />}
+              {!SELF_HOST && tab === "billing" && (
+                <BillingPanel onCloseModal={onClose} />
+              )}
               {tab === "apiKeys" && <ApiKeysPanel />}
             </div>
           </div>

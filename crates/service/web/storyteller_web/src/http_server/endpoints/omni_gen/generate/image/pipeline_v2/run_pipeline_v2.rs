@@ -1,5 +1,6 @@
-use log::{info, warn};
+use log::{error, info, warn};
 
+use internal_provider_client::InternalProviderClient;
 use artcraft_router::api::image_list_ref::ImageListRef;
 use artcraft_router::api::router_image_model::RouterImageModel;
 use artcraft_router::api::router_provider::RouterProvider;
@@ -17,6 +18,22 @@ use tokens::tokens::users::UserToken;
 
 use crate::billing::wallets::attempt_wallet_deduction::attempt_wallet_deduction_else_common_web_error;
 use crate::http_server::common_responses::common_web_error::CommonWebError;
+use crate::http_server::endpoints::omni_gen::generate::image::insert_db_job::insert_fal_job::{
+  insert_fal_job, InsertFalJobArgs,
+};
+use crate::http_server::endpoints::omni_gen::generate::image::insert_db_job::shared_job_args::SharedJobArgs;
+use bucket_paths::legacy::typified_paths::public::media_files::bucket_file_path::MediaFileBucketPath;
+use enums::by_table::media_files::media_file_class::MediaFileClass;
+use enums::by_table::media_files::media_file_origin_category::MediaFileOriginCategory;
+use enums::by_table::media_files::media_file_type::MediaFileType;
+use enums::common::generation_provider::GenerationProvider;
+use enums::common::visibility::Visibility;
+use hashing::sha256::sha256_hash_bytes::sha256_hash_bytes;
+use images::image_info::image_info::ImageInfo;
+use mysql_queries::queries::generic_inference::api_providers::fal::mark_fal_generic_inference_job_successfully_done::{
+  mark_fal_generic_inference_job_successfully_done, MarkJobArgs,
+};
+use mysql_queries::queries::media_files::create::insert_builder::media_file_insert_builder::MediaFileInsertBuilder;
 use crate::http_server::endpoints::generate::common::generation_debug_logs::{
   insert_provider_request_debug_log, provider_request_debug_log_type, GenerationDebugLogContext,
 };
@@ -24,12 +41,16 @@ use crate::http_server::endpoints::omni_gen::generate::image::pipeline_result::I
 use crate::http_server::endpoints::omni_gen::shared_utils::kinovi_account::KinoviAccount;
 use crate::http_server::endpoints::omni_gen::shared_utils::map_kinovi_web_router_error::map_router_error_to_web_error;
 use crate::state::server_state::ServerState;
+use sqlx::Acquire;
 use crate::util::lookup::lookup_media_files_as_cdn_url_list_and_map::MediaFilesAsCdnUrlListAndMap;
 
 pub struct RunPipelineV2Args<'a> {
   pub router_builder: &'a GenerateImageRequestBuilder,
+  /// API model id from the request (`model` JSON field), including custom self-host ids.
+  pub api_image_model_id: &'a str,
   pub server_state: &'a ServerState,
   pub user_token: &'a UserToken,
+  pub ip_address: &'a str,
   pub resolved_media: &'a MediaFilesAsCdnUrlListAndMap,
   pub kinovi_account: KinoviAccount,
   pub debug_log_context: &'a GenerationDebugLogContext<'a>,
@@ -48,8 +69,10 @@ pub async fn run_pipeline_v2(
 ) -> Result<ImagePipelineResult, CommonWebError> {
   let RunPipelineV2Args {
     router_builder,
+    api_image_model_id,
     server_state,
     user_token,
+    ip_address,
     resolved_media,
     kinovi_account,
     debug_log_context,
@@ -60,17 +83,141 @@ pub async fn run_pipeline_v2(
     router_builder,
     resolved_media,
   );
-  
-  let mut cost = estimate_cost_in_credits(&router_builder)?;
+
+  let mut cost = estimate_cost_in_credits(api_image_model_id, &hydrated_builder, server_state)?;
   if server_state.self_hosted_config.skip_credit_billing {
     cost = 0;
   }
 
-  let draft_or_request = build_execution_request(&hydrated_builder, server_state)?;
-
   info!("Charging wallet: {} credits", cost);
 
   let apriori_job_token = InferenceJobToken::generate();
+
+  // ==================== SELF-HOST / CATALOG PROVIDER — SYNCHRONOUS PATH ==================== //
+  if uses_self_hosted_image_backend(api_image_model_id, server_state) {
+    let (client, provider_model) =
+      resolve_openai_compatible_image_client(api_image_model_id, server_state)?;
+
+    let prompt = router_builder.prompt.clone().unwrap_or_default();
+
+    info!(
+      "Catalog/internal provider: generating image for model {} (sent as '{}')",
+      api_image_model_id, provider_model
+    );
+
+    let png_bytes = client
+      .generate_image_png_bytes(&prompt, Some(&provider_model))
+      .await
+      .map_err(|err| {
+        warn!("Internal provider image generation failed: {:#}", err);
+        CommonWebError::from_anyhow_error(err)
+      })?;
+
+    let file_hash = sha256_hash_bytes(&png_bytes)
+      .map_err(CommonWebError::from_anyhow_error)?;
+    let image_info = ImageInfo::decode_image_from_bytes(&png_bytes)
+      .map_err(CommonWebError::from_error)?;
+    let mime_type = "image/png";
+    let extension_with_period = ".png";
+    let public_upload_path =
+      MediaFileBucketPath::generate_new(Some("artcraft_"), Some(extension_with_period));
+
+    server_state
+      .public_bucket_client
+      .upload_file_with_content_type_process(
+        public_upload_path.get_full_object_path_str(),
+        &png_bytes,
+        mime_type,
+      )
+      .await
+      .map_err(|err| {
+        warn!("Internal provider upload to bucket failed: {:#}", err);
+        CommonWebError::from_anyhow_error(err)
+      })?;
+
+    let media_token = MediaFileInsertBuilder::new()
+      .checksum_sha2(&file_hash)
+      .creator_ip_address(ip_address)
+      .file_size_bytes(png_bytes.len() as u64)
+      .frame_height(image_info.height())
+      .frame_width(image_info.width())
+      .maybe_creator_user(Some(user_token))
+      .maybe_generation_provider(Some(GenerationProvider::Artcraft))
+      .maybe_prompt_token(None)
+      .maybe_source_job_token(Some(&apriori_job_token))
+      .media_file_class(MediaFileClass::Image)
+      .media_file_origin_category(MediaFileOriginCategory::ThirdPartyInference)
+      .media_file_type(MediaFileType::try_from_mime_type(mime_type).unwrap_or(MediaFileType::Png))
+      .mime_type(mime_type)
+      .public_bucket_directory_hash(&public_upload_path)
+      .insert_pool(&server_state.mysql_pool)
+      .await
+      .map_err(|err| {
+        warn!("Internal provider media file insert failed: {:?}", err);
+        CommonWebError::from_error(err)
+      })?;
+
+    info!("Internal provider uploaded media file: {}", media_token);
+
+    let mut transaction = mysql_connection.begin().await.map_err(|err| {
+      error!("Error starting MySQL transaction (internal): {:?}", err);
+      CommonWebError::from_error(err)
+    })?;
+
+    insert_fal_job(InsertFalJobArgs {
+      external_job_id: "internal",
+      shared: SharedJobArgs {
+        apriori_job_token: &apriori_job_token,
+        idempotency_token: router_builder
+          .idempotency_token
+          .as_deref()
+          .unwrap_or(""),
+        user_token,
+        maybe_avt_token: None,
+        maybe_prompt_token: None,
+        maybe_debug_log_event_token: None,
+        maybe_model_type: None,
+        maybe_platform_type: None,
+        ip_address,
+        transaction: &mut transaction,
+      },
+    })
+    .await
+    .map_err(|err| {
+      warn!("Internal provider job insert failed: {:?}", err);
+      CommonWebError::from_error(err)
+    })?;
+
+    mark_fal_generic_inference_job_successfully_done(MarkJobArgs {
+      job_token: &apriori_job_token,
+      media_file_token: &media_token,
+      maybe_batch_token: None,
+      mysql_executor: &mut *transaction,
+      phantom: Default::default(),
+    })
+    .await
+    .map_err(|err| {
+      warn!("Internal provider mark-success failed: {:#}", err);
+      CommonWebError::from_anyhow_error(err)
+    })?;
+
+    transaction.commit().await.map_err(|err| {
+      error!("Error committing internal provider transaction: {:?}", err);
+      CommonWebError::from_error(err)
+    })?;
+
+    return Ok(ImagePipelineResult {
+      apriori_job_token: apriori_job_token.clone(),
+      response: GenerateImageResponse::Artcraft(
+        artcraft_router::generate::generate_image::generate_image_response::ArtcraftImageResponsePayload {
+          inference_job_token: apriori_job_token,
+        },
+      ),
+      maybe_wallet_ledger_entry_token: None,
+    });
+  }
+
+  let draft_or_request = build_execution_request(&hydrated_builder, server_state)?;
 
   let maybe_wallet_ledger_entry_token = if cost > 0 {
     // Billed on the handler's connection (same pre-request DB phase).
@@ -150,17 +297,78 @@ fn provider_for_model(model: RouterImageModel, server_state: &ServerState) -> Ro
   }
 }
 
-fn should_route_to_internal_provider(model: RouterImageModel, server_state: &ServerState) -> bool {
-  let model_name = serde_json::to_string(&model)
-    .unwrap_or_default()
-    .trim_matches('"')
-    .to_string();
+pub fn custom_catalog_routes_model(
+  server_state: &ServerState,
+  api_image_model_id: &str,
+) -> bool {
+  server_state
+    .omni_gen_catalog
+    .custom_image_registry
+    .as_ref()
+    .and_then(|registry| registry.route_for(api_image_model_id))
+    .is_some()
+}
+
+pub fn uses_self_hosted_image_backend(
+  api_image_model_id: &str,
+  server_state: &ServerState,
+) -> bool {
+  custom_catalog_routes_model(server_state, api_image_model_id)
+    || should_route_to_internal_provider_for_api_id(api_image_model_id, server_state)
+}
+
+fn resolve_openai_compatible_image_client(
+  api_image_model_id: &str,
+  server_state: &ServerState,
+) -> Result<(InternalProviderClient, String), CommonWebError> {
+  if let Some(registry) = &server_state.omni_gen_catalog.custom_image_registry {
+    if let Some((client, provider_model)) = registry.openai_client_for_model(api_image_model_id) {
+      return Ok((client.clone(), provider_model));
+    }
+  }
+
+  let internal = server_state
+    .self_hosted_config
+    .internal_provider
+    .as_ref()
+    .ok_or_else(|| {
+      CommonWebError::server_error_with_message(
+        "image model is not configured with a provider backend",
+      )
+    })?;
+
+  let provider_model = internal
+    .model_aliases
+    .get(api_image_model_id)
+    .cloned()
+    .unwrap_or_else(|| api_image_model_id.to_string());
+
+  Ok((internal.client.clone(), provider_model))
+}
+
+pub fn should_route_to_internal_provider_for_api_id(
+  api_image_model_id: &str,
+  server_state: &ServerState,
+) -> bool {
   server_state
     .self_hosted_config
     .internal_provider
     .as_ref()
-    .map(|config| config.routed_image_models.iter().any(|entry| entry == &model_name))
+    .map(|config| {
+      config
+        .routed_image_models
+        .iter()
+        .any(|entry| entry == api_image_model_id)
+    })
     .unwrap_or(false)
+}
+
+pub fn should_route_to_internal_provider(model: RouterImageModel, server_state: &ServerState) -> bool {
+  let model_name = serde_json::to_string(&model)
+    .unwrap_or_default()
+    .trim_matches('"')
+    .to_string();
+  should_route_to_internal_provider_for_api_id(&model_name, server_state)
 }
 
 fn apply_hydrated_media_inputs(
@@ -182,8 +390,13 @@ fn apply_hydrated_media_inputs(
 }
 
 fn estimate_cost_in_credits(
+  api_image_model_id: &str,
   router_builder: &GenerateImageRequestBuilder,
+  server_state: &ServerState,
 ) -> Result<u64, CommonWebError> {
+  if uses_self_hosted_image_backend(api_image_model_id, server_state) {
+    return Ok(0);
+  }
   let mut cost_builder = router_builder.clone();
   cost_builder.provider = RouterProvider::Artcraft;
 

@@ -80,6 +80,30 @@ fn build_omni_gen_image_models() -> Vec<OmniGenImageModelDetails> {
     ..Default::default()
   });
 
+  // Self-host only: image generation through the internal (OpenAI-compatible)
+  // provider. Routing is driven by `INTERNAL_PROVIDER_ROUTED_IMAGE_MODELS`;
+  // without that configuration the generate/cost handlers reject the model
+  // before it ever reaches an external provider.
+  models.push(OmniGenImageModelDetails {
+    model: CommonImageModel::MinimaxImage,
+    model_creator: Some(ModelCreator::Hailuo),
+    full_name: Some("MiniMax Image 01 (self-host)".to_string()),
+    text_prompt_supported: Some(true),
+    aspect_ratio_options: Some(vec![
+      CommonAspectRatio::SquareHd,
+      CommonAspectRatio::Square,
+      CommonAspectRatio::TallThreeByFour,
+      CommonAspectRatio::TallNineBySixteen,
+      CommonAspectRatio::WideFourByThree,
+      CommonAspectRatio::WideSixteenByNine,
+    ]),
+    aspect_ratio_default: Some(CommonAspectRatio::Square),
+    batch_size_min: Some(1),
+    batch_size_max: Some(4),
+    batch_size_default: Some(1),
+    ..Default::default()
+  });
+
   models.push(OmniGenImageModelDetails {
     model: CommonImageModel::FluxPro11Ultra,
     model_creator: Some(ModelCreator::BlackForestLabs),
@@ -654,6 +678,10 @@ fn build_omni_gen_image_model_providers() -> Vec<OmniGenImageModelProviderDetail
       },
       OmniGenImageProviderModelDetails {
         model: CommonImageModel::NanoBananaPro,
+        overrides: None,
+      },
+      OmniGenImageProviderModelDetails {
+        model: CommonImageModel::MinimaxImage,
         overrides: None,
       },
     ],

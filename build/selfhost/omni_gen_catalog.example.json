@@ -1,0 +1,33 @@
+{
+  "version": 3,
+  "providers": [
+    {
+      "id": "lm_studio",
+      "type": "openai_compatible",
+      "base_url": "http://host.docker.internal:1234",
+      "api_key": "unset",
+      "default_model": "default"
+    },
+    {
+      "id": "vllm_gpu2",
+      "type": "openai_compatible",
+      "base_url": "http://10.0.0.12:8000",
+      "api_key_env": "VLLM_GPU2_API_KEY",
+      "default_model": "default"
+    }
+  ],
+  "image": [
+    {
+      "id": "company_logo",
+      "full_name": "Logo (LM Studio)",
+      "provider": "lm_studio",
+      "provider_model": "flux-schnell"
+    },
+    {
+      "id": "product_shot",
+      "full_name": "Product shot (vLLM)",
+      "provider": "vllm_gpu2",
+      "provider_model": "sdxl-product"
+    }
+  ]
+}

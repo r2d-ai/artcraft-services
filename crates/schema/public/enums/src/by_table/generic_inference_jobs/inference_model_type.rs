@@ -164,6 +164,10 @@ pub enum InferenceModelType {
   /// Midjourney v8 as routed via kinovi
   #[serde(rename = "midjourney_8")]
   Midjourney8,
+  /// Self-host deployments: an image model served by the internal
+  /// (OpenAI-compatible) provider.
+  #[serde(rename = "minimax_image")]
+  MinimaxImage,
 
   // Video models
   #[serde(rename = "grok_video")]
@@ -385,6 +389,7 @@ impl InferenceModelType {
       Self::Midjourney7 => "midjourney_7",
       Self::Midjourney7Niji => "midjourney_7_niji",
       Self::Midjourney8 => "midjourney_8",
+      Self::MinimaxImage => "minimax_image",
 
       // Video models
       Self::GrokVideo => "grok_video",
@@ -527,6 +532,7 @@ impl InferenceModelType {
       "midjourney_7" => Ok(Self::Midjourney7),
       "midjourney_7_niji" => Ok(Self::Midjourney7Niji),
       "midjourney_8" => Ok(Self::Midjourney8),
+      "minimax_image" => Ok(Self::MinimaxImage),
 
       // Video models
       "grok_video" => Ok(Self::GrokVideo),
@@ -673,6 +679,7 @@ impl InferenceModelType {
       Self::Midjourney7,
       Self::Midjourney7Niji,
       Self::Midjourney8,
+      Self::MinimaxImage,
 
       // Video models
       Self::GrokVideo,
@@ -802,6 +809,7 @@ impl InferenceModelType {
       CommonModelType::Midjourney7 => Self::Midjourney7,
       CommonModelType::Midjourney7Niji => Self::Midjourney7Niji,
       CommonModelType::Midjourney8 => Self::Midjourney8,
+      CommonModelType::MinimaxImage => Self::MinimaxImage,
 
       // Video models
       CommonModelType::GrokVideo => Self::GrokVideo,

@@ -48,6 +48,7 @@ import { SignupCtaModal } from "../components/signup-cta-modal";
 import { InsufficientCreditsModal } from "../components/insufficient-credits-modal";
 import { GlobalActionReminder } from "../components/global-action-reminder";
 import { useSession } from "../lib/session";
+import { SELF_HOST } from "../config/self_host";
 import { DesktopLogin } from "../pages/login/desktop-login";
 
 function ScrollToTop() {
@@ -173,12 +174,21 @@ export function App() {
           <Route path="/edit-3d/:sceneToken" element={<PageScene />} />
           <Route path="/edit-image" element={<PageDraw />} />
           <Route path="/support" element={<Support />} />
-          <Route path="/pricing" element={<Pricing />} />
+          <Route
+            path="/pricing"
+            element={
+              SELF_HOST ? <Navigate to="/" replace /> : <Pricing />
+            }
+          />
           {/* Welcome is public so it stays reachable right after signup
               without losing the race against the session refresh that
               RequireAuth reads. The page itself drives the pricing/Stripe
-              handoff via PricingTable. */}
-          <Route path="/welcome" element={<Welcome />} />
+              handoff via PricingTable. It is shortcut to home in self-host
+              mode since there is no plan selection there. */}
+          <Route
+            path="/welcome"
+            element={SELF_HOST ? <Navigate to="/" replace /> : <Welcome />}
+          />
 
           {/* Protected — sign-in required (user-owned content / billing flows) */}
           <Route element={<RequireAuth />}>
@@ -200,8 +210,18 @@ export function App() {
             <Route path="/library/:slug" element={<Library />} />
             <Route path="/referrals" element={<Referrals />} />
             <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/checkout/success" element={<CheckoutSuccess />} />
-            <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+            <Route
+              path="/checkout/success"
+              element={
+                SELF_HOST ? <Navigate to="/" replace /> : <CheckoutSuccess />
+              }
+            />
+            <Route
+              path="/checkout/cancel"
+              element={
+                SELF_HOST ? <Navigate to="/" replace /> : <CheckoutCancel />
+              }
+            />
             <Route
               path="/checkout_success"
               element={<Navigate to="/checkout/success" replace />}
@@ -221,7 +241,9 @@ export function App() {
       </Routes>
       <ToastContainer />
       <SignupCtaModal />
-      <InsufficientCreditsModal />
+      {/* Credits are unmetered in self-host mode, so the insufficient-credits
+          upsell can never trigger and stays unmounted. */}
+      {!SELF_HOST && <InsufficientCreditsModal />}
       <GlobalActionReminder />
     </>
   );

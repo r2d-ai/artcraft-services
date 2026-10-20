@@ -3,7 +3,7 @@ use std::sync::Arc;
 use actix_artcraft::sessions::user_sessions::http_user_session_manager::HttpUserSessionManager;
 use actix_web::{web, HttpRequest, HttpResponse};
 use http_server_common::request::get_request_ip::get_request_ip;
-use log::{info, warn};
+use log::{error, info, warn};
 use mysql_queries::queries::oidc_sign_in_accounts::get_oidc_sign_in_account_by_issuer_subject::{
   get_oidc_sign_in_account_by_issuer_subject, GetOidcSignInAccountByIssuerSubjectArgs,
 };
@@ -60,7 +60,10 @@ pub async fn oidc_callback_handler(
     .ok_or_else(|| CommonWebError::NotFound)?;
 
   let redis_key = RedisKeys::oidc_auth_state(state);
-  let mut redis_connection = server_state.redis_pool.get().map_err(CommonWebError::from_error)?;
+  let mut redis_connection = server_state.redis_pool.get().map_err(|err| {
+    error!("OIDC callback: Redis pool acquiring state failed: {err}");
+    CommonWebError::from_error(err)
+  })?;
   let stored: Option<String> = redis::cmd("GET")
     .arg(&redis_key)
     .query(&mut *redis_connection)
@@ -87,11 +90,17 @@ pub async fn oidc_callback_handler(
     code_verifier,
   )
     .await
-    .map_err(CommonWebError::from_anyhow_error)?;
+    .map_err(|err| {
+      error!("OIDC callback: token exchange failed: {err:#}");
+      CommonWebError::from_anyhow_error(err)
+    })?;
 
   let jwks = fetch_jwks_key_map(&oidc.metadata.jwks_uri)
     .await
-    .map_err(CommonWebError::from_anyhow_error)?;
+    .map_err(|err| {
+      error!("OIDC callback: fetching JWKS from {} failed: {err:#}", oidc.metadata.jwks_uri);
+      CommonWebError::from_anyhow_error(err)
+    })?;
 
   let claims = verify_id_token(
     &jwks,
@@ -100,7 +109,10 @@ pub async fn oidc_callback_handler(
     &oidc.client_id,
     Some(expected_nonce),
   )
-    .map_err(CommonWebError::from_anyhow_error)?;
+    .map_err(|err| {
+      error!("OIDC callback: id_token verification failed: {err:#}");
+      CommonWebError::from_anyhow_error(err)
+    })?;
 
   let mut mysql_connection = server_state.mysql_pool.acquire().await.map_err(CommonWebError::from_error)?;
   let ip_address = get_request_ip(&http_request);
@@ -133,11 +145,17 @@ pub async fn oidc_callback_handler(
     Transactor::for_connection(&mut *mysql_connection),
   )
     .await
-    .map_err(CommonWebError::from_anyhow_error)?;
+    .map_err(|err| {
+      error!("OIDC callback: creating user session failed for user {}: {err:#}", user_token);
+      CommonWebError::from_anyhow_error(err)
+    })?;
 
   let session_cookie = session_cookie_manager
     .create_cookie(&session_token, &user_token)
-    .map_err(CommonWebError::from_error)?;
+    .map_err(|e| {
+      error!("OIDC callback: create_cookie failed: {e}");
+      CommonWebError::from_error(e)
+    })?;
 
   info!("OIDC login succeeded for user {}", user_token);
 

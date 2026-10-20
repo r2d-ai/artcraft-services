@@ -7,6 +7,7 @@ import { Button } from "@storyteller/ui-button";
 import { GoogleLoginButton } from "./auth";
 import { refreshSession, useSession } from "../lib/session";
 import { hasActiveSubscription } from "../lib/billing";
+import { SELF_HOST } from "../config/self_host";
 
 interface SignupCtaState {
   isOpen: boolean;
@@ -60,7 +61,7 @@ export function SignupCtaModal() {
     ]);
     close();
     if (!subscribed) {
-      navigate("/pricing");
+      navigate(SELF_HOST ? "/" : "/pricing");
     }
   };
 

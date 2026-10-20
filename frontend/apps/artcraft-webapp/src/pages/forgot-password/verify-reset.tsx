@@ -12,6 +12,7 @@ import { Input } from "@storyteller/ui-input";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PasswordResetApi, BillingApi } from "@storyteller/api";
+import { SELF_HOST } from "../../config/self_host";
 
 import { AuthHeader } from "../../components/auth/auth-layout";
 import { AuthPageFrame } from "../../components/auth/auth-page-frame";
@@ -97,7 +98,7 @@ const VerifyReset = () => {
           setRedirectTo("/");
           setRedirectLabel("Back to Homepage");
         } else {
-          setRedirectTo("/pricing");
+          setRedirectTo(SELF_HOST ? "/" : "/pricing");
           setRedirectLabel("Continue");
         }
       } catch {

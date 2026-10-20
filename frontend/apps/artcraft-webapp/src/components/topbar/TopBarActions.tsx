@@ -33,6 +33,7 @@ import {
 } from "@storyteller/api";
 import { invalidateSession, useSession } from "../../lib/session";
 import { SOCIAL_LINKS } from "../../config/links";
+import { SELF_HOST } from "../../config/self_host";
 import { CreditsModal } from "../credits-modal";
 import { SettingsModal } from "../settings-modal/SettingsModal";
 import { TaskQueue } from "./task-queue";
@@ -74,7 +75,13 @@ export function TopBarActions({ className }: { className?: string }) {
   useEffect(() => {
     if (user) {
       fetchCredits().then(setCredits);
-      fetchHasPaidPlan().then(setHasPaidPlan);
+      // Billing never runs in self-host mode; skip the subscriptions call so
+      // the header depends only on credits and session state.
+      if (SELF_HOST) {
+        setHasPaidPlan(null);
+      } else {
+        fetchHasPaidPlan().then(setHasPaidPlan);
+      }
     } else {
       setCredits(null);
       setHasPaidPlan(null);
@@ -104,23 +111,36 @@ export function TopBarActions({ className }: { className?: string }) {
     >
       {!authChecked ? null : user ? (
         <>
-          <Link
-            to="/pricing"
-            className="hidden lg:flex h-8 items-center gap-1.5 px-3 rounded-[3px] font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-          >
-            <GemIcon className="text-[11px]" />
-            Pricing
-          </Link>
-
-          {credits !== null && (
-            <CreditsChip
-              credits={credits}
-              onBuyCredits={() => setCreditsModalOpen(true)}
-              onUpgrade={() => navigate("/pricing")}
-            />
+          {!SELF_HOST && (
+            <Link
+              to="/pricing"
+              className="hidden lg:flex h-8 items-center gap-1.5 px-3 rounded-[3px] font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              <GemIcon className="text-[11px]" />
+              Pricing
+            </Link>
           )}
 
-          {hasPaidPlan === false && (
+          {credits !== null && (
+            SELF_HOST ? (
+              // Unmetered deployment: display the balance read-only, without
+              // the buy-credits / upgrade popover actions.
+              <div className="hidden sm:flex h-8 items-center gap-1.5 px-2.5 rounded-[3px] border border-white/15 text-white/80 text-sm font-medium">
+                <CoinsIcon className="text-primary text-[11px]" />
+                <span className="whitespace-nowrap">
+                  {credits.toLocaleString()}
+                </span>
+              </div>
+            ) : (
+              <CreditsChip
+                credits={credits}
+                onBuyCredits={() => setCreditsModalOpen(true)}
+                onUpgrade={() => navigate("/pricing")}
+              />
+            )
+          )}
+
+          {!SELF_HOST && hasPaidPlan === false && (
             <Button
               variant="primary"
               icon={GemIcon}
@@ -249,13 +269,15 @@ export function TopBarActions({ className }: { className?: string }) {
         </>
       ) : (
         <>
-          <Link
-            to="/pricing"
-            className="hidden lg:flex h-8 items-center gap-1.5 px-3 rounded-[3px] font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-          >
-            <GemIcon className="text-[11px]" />
-            Pricing
-          </Link>
+          {!SELF_HOST && (
+            <Link
+              to="/pricing"
+              className="hidden lg:flex h-8 items-center gap-1.5 px-3 rounded-[3px] font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              <GemIcon className="text-[11px]" />
+              Pricing
+            </Link>
+          )}
           <Link
             to="/login"
             className="h-8 flex items-center px-3 rounded-[3px] font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-white/80 hover:text-white hover:bg-white/10 transition-colors"
@@ -271,10 +293,12 @@ export function TopBarActions({ className }: { className?: string }) {
         </>
       )}
 
-      <CreditsModal
-        isOpen={creditsModalOpen}
-        onClose={() => setCreditsModalOpen(false)}
-      />
+      {!SELF_HOST && (
+        <CreditsModal
+          isOpen={creditsModalOpen}
+          onClose={() => setCreditsModalOpen(false)}
+        />
+      )}
       <SettingsModal
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}

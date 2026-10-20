@@ -4,7 +4,6 @@ use actix_web::web::Json;
 use actix_web::{web, HttpRequest};
 use artcraft_api_defs::omni_gen::models::omni_gen_audio_models::OmniGenAudioModelsResponse;
 
-use crate::configs::omni_gen::audio_models::OMNI_GEN_AUDIO_MODELS_AND_PROVIDERS;
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::state::server_state::ServerState;
 
@@ -20,8 +19,8 @@ use crate::state::server_state::ServerState;
 )]
 pub async fn omni_gen_audio_models_handler(
   _http_request: HttpRequest,
-  _server_state: web::Data<Arc<ServerState>>,
+  server_state: web::Data<Arc<ServerState>>,
 ) -> Result<Json<OmniGenAudioModelsResponse>, CommonWebError> {
-  let response = (*OMNI_GEN_AUDIO_MODELS_AND_PROVIDERS).clone();
+  let response = server_state.omni_gen_catalog.audio.clone();
   Ok(Json(response))
 }

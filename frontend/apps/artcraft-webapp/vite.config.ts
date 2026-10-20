@@ -74,15 +74,21 @@ export default defineConfig(() => ({
   cacheDir: '../../node_modules/.vite/apps/artcraft-webapp',
   server:{
     port: 4201,
-    host: 'localhost',
+    host: 'k7',
+    allowedHosts: ['k7'],
     proxy: {
       // Forward API calls to production API to avoid CORS during local dev
       '/v1': {
-        target: 'https://api.storyteller.ai',
+        target: 'http://k7:12345',
         changeOrigin: true,
-        secure: true,
+        secure: false,
+        // NB: storyteller-web's dev CORS allowlist only accepts localhost
+        // origins (add_development_only in actix_cors_configs), so an Origin
+        // of http://k7:4201 forwarded from the browser is rejected with
+        // "origin not allowed to make this request". Rewrite it to
+        // http://localhost:4201 which the allowlist accepts.
         headers: {
-          Origin: 'https://api.storyteller.ai',
+          origin: 'http://localhost:4201',
         },
       },
       // NB: `/__cdn` asset proxying lives in `cdnProxyPlugin` above — it

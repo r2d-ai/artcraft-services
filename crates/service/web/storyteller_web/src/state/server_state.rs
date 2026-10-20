@@ -11,6 +11,7 @@ use crate::http_server::web_utils::redis_rate_limiter::RedisRateLimiter;
 use crate::http_server::web_utils::scoped_temp_dir_creator::ScopedTempDirCreator;
 use crate::startup::setup_inference_providers::InferenceProviders;
 use crate::startup::setup_oidc::OidcConfig;
+use crate::startup::setup_omni_gen_catalog::OmniGenCatalog;
 use crate::startup::setup_self_hosted::SelfHostedConfig;
 use crate::state::certs::google_sign_in_cert::GoogleSignInCert;
 use crate::state::flags::paging_flags::PagingFlags;
@@ -104,6 +105,9 @@ pub struct ServerState {
   pub inference_providers: InferenceProviders,
 
   pub self_hosted_config: SelfHostedConfig,
+
+  /// Model/provider listings for `GET /v1/omni_gen/models/*` (optional file allowlist at startup).
+  pub omni_gen_catalog: OmniGenCatalog,
 
   pub oidc_config: Option<OidcConfig>,
 
