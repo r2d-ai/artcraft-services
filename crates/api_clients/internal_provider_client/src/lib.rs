@@ -44,13 +44,27 @@ impl InternalProviderClient {
     }
 
     let payload = response.json::<ImageGenerationResponse>().await?;
-    let b64 = payload
+    let entry = payload
       .data
       .first()
-      .and_then(|entry| entry.b64_json.as_ref())
       .ok_or_else(|| anyhow!("internal provider returned no image data"))?;
 
-    Ok(base64::decode(b64)?)
+    // Providers commonly return either inline base64 or a hosted URL;
+    // accept both so any OpenAI-compatible backend works.
+    let bytes = if let Some(b64) = &entry.b64_json {
+      base64::decode(b64)?
+    } else if let Some(url) = &entry.url {
+      let downloaded = reqwest::Client::new()
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?;
+      downloaded.bytes().await?.to_vec()
+    } else {
+      return Err(anyhow!("internal provider returned no image data"));
+    };
+
+    Ok(bytes)
   }
 
   /// OpenAI-compatible chat completion (for LLM routing).

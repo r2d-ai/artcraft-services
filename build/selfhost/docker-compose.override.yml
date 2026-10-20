@@ -1,0 +1,9 @@
+# Local-only build/runtime tweaks for this working copy. Not committed config:
+# compose auto-merges this file with docker-compose.yml.
+services:
+  storyteller-web:
+    build:
+      # NB: BuildKit's default build network fails to reach apt mirrors on this
+      # host (docker run works, docker build gets "Unable to locate package").
+      # Building with the host network sidesteps it.
+      network: host

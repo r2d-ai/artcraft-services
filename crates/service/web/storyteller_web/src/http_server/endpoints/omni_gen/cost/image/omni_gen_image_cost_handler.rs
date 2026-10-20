@@ -29,9 +29,29 @@ use crate::state::server_state::ServerState;
 pub async fn omni_gen_image_cost_handler(
   _http_request: HttpRequest,
   request: Json<OmniGenImageCostAndGenerateRequest>,
-  _server_state: web::Data<Arc<ServerState>>,
+  server_state: web::Data<Arc<ServerState>>,
 ) -> Result<Json<OmniGenImageCostResponse>, CommonWebError> {
   let mut builder = hydrate_to_router_request(&request)?;
+
+  let api_image_model_id = request
+    .model
+    .as_ref()
+    .ok_or_else(|| CommonWebError::BadInputWithSimpleMessage("model is required".to_string()))?
+    .api_id();
+
+  if crate::http_server::endpoints::omni_gen::generate::image::pipeline_v2::run_pipeline_v2::uses_self_hosted_image_backend(&api_image_model_id, &server_state) {
+    // Internal (custom) provider is self-hosted and free.
+    return Ok(Json(OmniGenImageCostResponse {
+      success: true,
+      cost_in_credits: Some(0),
+      cost_in_usd_cents: Some(0),
+      is_free: true,
+      is_unlimited: true,
+      is_rate_limited: false,
+      has_watermark: false,
+      failures_are_refunded: None,
+    }));
+  }
 
   builder.provider = RouterProvider::Artcraft; // NB: User is paying for ArtCraft credits / generation
 

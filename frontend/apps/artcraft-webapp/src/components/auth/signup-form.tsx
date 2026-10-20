@@ -14,6 +14,7 @@ import {
 } from "@storyteller/common";
 import { refreshSession } from "../../lib/session";
 import { hasActiveSubscription } from "../../lib/billing";
+import { SELF_HOST } from "../../config/self_host";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 
 interface SignupFormProps {
@@ -97,7 +98,9 @@ export const SignupForm = ({
       refreshSession(true),
       hasActiveSubscription(),
     ]);
-    navigate(subscribed ? "/" : "/pricing");
+    navigate(
+      subscribed ? "/" : SELF_HOST ? "/" : "/pricing",
+    );
   };
 
   const handleGoogleError = (message: string) => {

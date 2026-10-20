@@ -84,7 +84,11 @@ fn verify_with_key(
   }
 
   if let Some(expected) = expected_nonce {
-    if token.custom.nonce.as_deref() != Some(expected) {
+    // NB: `nonce` is a standard top-level id_token claim; jwt_simple consumes
+    // it into `Claims::nonce` (not the flattened custom claims), so comparing
+    // `token.custom.nonce` would ALWAYS mismatch with providers that send the
+    // standard claim (e.g. Keycloak) even for perfectly-valid SSO logins.
+    if token.nonce.as_deref() != Some(expected) {
       return Err(anyhow!("OIDC nonce mismatch"));
     }
   }

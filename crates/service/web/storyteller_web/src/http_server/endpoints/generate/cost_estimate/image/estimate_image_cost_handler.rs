@@ -152,6 +152,7 @@ fn map_image_model(model: CommonImageModel) -> Result<RouterImageModel, HandlerE
     CommonImageModel::Midjourney7 => RouterImageModel::Midjourney7,
     CommonImageModel::Midjourney7Niji => RouterImageModel::Midjourney7Niji,
     CommonImageModel::Midjourney8 => RouterImageModel::Midjourney8,
+    CommonImageModel::MinimaxImage => RouterImageModel::MinimaxImage,
   };
   Ok(router_model)
 }

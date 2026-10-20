@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::configs::omni_gen::video_models::video_models::OMNI_GEN_VIDEO_MODELS_AND_PROVIDERS;
 use crate::http_server::common_responses::common_web_error::CommonWebError;
 use crate::http_server::user_lookup::user_session::session_utils::lookup::user_session_feature_flags::UserSessionFeatureFlags;
 use crate::state::server_state::ServerState;
@@ -36,7 +35,7 @@ pub async fn omni_gen_video_models_handler(
   server_state: web::Data<Arc<ServerState>>,
   _query: Query<OmniGenVideoModelsQuery>,
 ) -> Result<Json<OmniGenVideoModelsResponse>, CommonWebError> {
-  let mut response = (*OMNI_GEN_VIDEO_MODELS_AND_PROVIDERS).clone();
+  let mut response = server_state.omni_gen_catalog.video.clone();
 
   if !can_see_minimax(&http_request, &server_state).await? {
     remove_models(&mut response, &MINIMAX_GATED_MODELS);

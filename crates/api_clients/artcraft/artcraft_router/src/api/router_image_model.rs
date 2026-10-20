@@ -53,6 +53,10 @@ pub enum RouterImageModel {
   QwenEdit2511Angles,
   #[serde(rename = "flux_2_lora_angles")]
   Flux2LoraAngles,
+  /// Self-host deployments: an image model served by the internal
+  /// (OpenAI-compatible) provider. Mirrors `CommonImageModel::MinimaxImage`.
+  #[serde(rename = "minimax_image")]
+  MinimaxImage,
 }
 
 #[cfg(test)]

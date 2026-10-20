@@ -58,6 +58,10 @@ pub fn hydrate_to_router_request(
 fn convert_model(
   model: &CommonImageModelEnum,
 ) -> Result<RouterImageModel, CommonWebError> {
+  if model.is_custom_catalog_id() {
+    return Ok(RouterImageModel::MinimaxImage);
+  }
+
   let json = serde_json::to_string(model)?;
   serde_json::from_str(&json).map_err(|e| {
     CommonWebError::BadInputWithSimpleMessage(

@@ -34,6 +34,7 @@ use crate::startup::setup_bans::{
   load_static_container_ip_bans, load_troll_user_token_bans,
 };
 use crate::startup::setup_inference_providers::setup_inference_providers;
+use crate::startup::setup_omni_gen_catalog::setup_omni_gen_catalog;
 use crate::startup::setup_oidc::setup_oidc_config;
 use crate::startup::setup_self_hosted::setup_self_hosted_config;
 use crate::startup::setup_internal_api_keys::setup_internal_api_keys;
@@ -197,6 +198,7 @@ pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResu
 
   let inference_providers = setup_inference_providers()?;
   let self_hosted_config = setup_self_hosted_config()?;
+  let (omni_gen_catalog, self_hosted_config) = setup_omni_gen_catalog(self_hosted_config)?;
   let oidc_config = setup_oidc_config().await?;
 
   let resend_api_key = easyenv::get_env_string_required("RESEND_API_KEY")?;
@@ -245,6 +247,7 @@ pub async fn setup_dependencies(server_hostname: &str) -> AnyhowResult<SetupResu
     internal_api_keys: setup_internal_api_keys(),
     inference_providers,
     self_hosted_config,
+    omni_gen_catalog,
     oidc_config,
     resend: ResendData {
       api_key: resend_api_key,
